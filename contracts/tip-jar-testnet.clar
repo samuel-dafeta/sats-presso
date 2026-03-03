@@ -105,3 +105,65 @@
 
 ;; Tip counter for generating unique IDs
 (define-data-var tip-counter uint u0)
+
+;; =====================================
+;; PUBLIC FUNCTIONS
+;; =====================================
+
+;; Register as a creator to receive tips
+(define-public (register-creator (name (string-utf8 50)) (bio (string-utf8 280)))
+  (let ((caller tx-sender))
+    ;; Check if already registered
+    (asserts! (is-none (map-get? creators caller)) ERR_ALREADY_REGISTERED)
+    ;; Validate name is not empty
+    (asserts! (> (len name) u0) ERR_INVALID_NAME)
+    ;; Register the creator
+    (map-set creators caller {
+      name: name,
+      bio: bio,
+      total-received: u0,
+      tip-count: u0,
+      registered-at: burn-block-height
+    })
+    ;; Initialize default presets (1k, 5k, 10k, 25k, 50k sats)
+    (map-set creator-presets caller {
+      preset-1: u1000,
+      preset-2: u5000,
+      preset-3: u10000,
+      preset-4: u25000,
+      preset-5: u50000
+    })
+    ;; Increment creator count
+    (var-set total-creators (+ (var-get total-creators) u1))
+    ;; Emit event
+    (print {
+      event: "creator-registered",
+      creator: caller,
+      name: name,
+      block: burn-block-height
+    })
+    (ok true)
+  )
+)
+
+;; Update creator profile
+(define-public (update-profile (name (string-utf8 50)) (bio (string-utf8 280)))
+  (let (
+    (caller tx-sender)
+    (creator-data (unwrap! (map-get? creators caller) ERR_CREATOR_NOT_FOUND))
+  )
+    ;; Validate name
+    (asserts! (> (len name) u0) ERR_INVALID_NAME)
+    ;; Update profile keeping stats
+    (map-set creators caller (merge creator-data {
+      name: name,
+      bio: bio
+    }))
+    (print {
+      event: "profile-updated",
+      creator: caller,
+      name: name
+    })
+    (ok true)
+  )
+)
