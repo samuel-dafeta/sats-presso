@@ -167,3 +167,45 @@
     (ok true)
   )
 )
+
+;; Set or update a funding goal/campaign
+(define-public (set-goal (amount uint) (description (string-utf8 140)) (deadline uint))
+  (let ((caller tx-sender))
+    ;; Verify caller is a registered creator
+    (asserts! (is-some (map-get? creators caller)) ERR_CREATOR_NOT_FOUND)
+    ;; Validate amount
+    (asserts! (> amount u0) ERR_INVALID_AMOUNT)
+    ;; Set the goal
+    (map-set creator-goals caller {
+      goal-amount: amount,
+      goal-description: description,
+      goal-deadline: deadline,
+      goal-active: true
+    })
+    (print {
+      event: "goal-set",
+      creator: caller,
+      amount: amount,
+      description: description,
+      deadline: deadline
+    })
+    (ok true)
+  )
+)
+
+;; Deactivate current goal
+(define-public (deactivate-goal)
+  (let (
+    (caller tx-sender)
+    (goal-data (unwrap! (map-get? creator-goals caller) ERR_GOAL_NOT_FOUND))
+  )
+    (map-set creator-goals caller (merge goal-data {
+      goal-active: false
+    }))
+    (print {
+      event: "goal-deactivated",
+      creator: caller
+    })
+    (ok true)
+  )
+)
