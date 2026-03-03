@@ -55,3 +55,91 @@
   earned-at: uint,
   description: (string-utf8 100)
 })
+
+;; Track which badges each user has
+(define-map user-badges principal (list 20 uint))
+
+;; Track if user has specific badge type
+(define-map user-has-badge { user: principal, badge-type: uint } bool)
+
+;; User stats (for eligibility checking)
+(define-map user-stats principal {
+  tips-sent: uint,
+  total-sats-tipped: uint,
+  diamond-tips: uint,
+  current-streak: uint,
+  max-streak: uint,
+  battles-won: uint
+})
+
+;; Badge type metadata
+(define-map badge-types uint {
+  name: (string-utf8 30),
+  description: (string-utf8 100),
+  emoji: (string-ascii 10)
+})
+
+;; ============================================================
+;; INITIALIZATION
+;; ============================================================
+
+;; Initialize badge types
+(map-set badge-types BADGE-FIRST-SIP {
+  name: u"First Sip",
+  description: u"Sent your first tip on Sats-Presso",
+  emoji: "coffee1"
+})
+
+(map-set badge-types BADGE-REGULAR {
+  name: u"Regular",
+  description: u"Sent 10 or more tips",
+  emoji: "coffee2"
+})
+
+(map-set badge-types BADGE-CONNOISSEUR {
+  name: u"Connoisseur",
+  description: u"Sent 100 or more tips",
+  emoji: "coffee3"
+})
+
+(map-set badge-types BADGE-WHALE {
+  name: u"Whale",
+  description: u"Tipped over 1 million sats total",
+  emoji: "diamond"
+})
+
+(map-set badge-types BADGE-STREAK-7 {
+  name: u"Week Warrior",
+  description: u"Maintained a 7-day tipping streak",
+  emoji: "fire1"
+})
+
+(map-set badge-types BADGE-STREAK-30 {
+  name: u"Streak Master",
+  description: u"Maintained a 30-day tipping streak",
+  emoji: "fire2"
+})
+
+(map-set badge-types BADGE-TOP-SUPPORTER {
+  name: u"Top Supporter",
+  description: u"Became #1 supporter of a creator",
+  emoji: "crown"
+})
+
+(map-set badge-types BADGE-BATTLE-VICTOR {
+  name: u"Battle Victor",
+  description: u"Won a tip battle",
+  emoji: "sword"
+})
+
+(map-set badge-types BADGE-EARLY-ADOPTER {
+  name: u"Early Adopter",
+  description: u"Among the first 1000 users",
+  emoji: "star"
+})
+
+(map-set badge-types BADGE-DIAMOND-HANDS {
+  name: u"Diamond Hands",
+  description: u"Sent 10 or more diamond-tier tips",
+  emoji: "diamond2"
+})
