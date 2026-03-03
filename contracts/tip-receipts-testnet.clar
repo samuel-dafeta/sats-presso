@@ -59,3 +59,58 @@
   gold: uint,
   diamond: uint
 })
+
+;; ============================================================
+;; SIP-009 FUNCTIONS
+;; ============================================================
+
+(define-read-only (get-last-token-id)
+  (ok (var-get last-token-id))
+)
+
+(define-read-only (get-token-uri (token-id uint))
+  (ok (some (var-get base-uri)))
+)
+
+(define-read-only (get-owner (token-id uint))
+  (ok (nft-get-owner? tip-receipt token-id))
+)
+
+(define-public (transfer (token-id uint) (sender principal) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender sender) ERR-NOT-AUTHORIZED)
+    (nft-transfer? tip-receipt token-id sender recipient)
+  )
+)
+
+;; ============================================================
+;; CORE FUNCTIONS
+;; ============================================================
+
+;; Calculate tier based on tip amount
+(define-read-only (get-tier (amount uint))
+  (if (>= amount u100000)
+    TIER-DIAMOND
+    (if (>= amount u10000)
+      TIER-GOLD
+      (if (>= amount u1000)
+        TIER-SILVER
+        TIER-BRONZE
+      )
+    )
+  )
+)
+
+;; Get tier name for display
+(define-read-only (get-tier-name (tier uint))
+  (if (is-eq tier TIER-DIAMOND)
+    "DIAMOND"
+    (if (is-eq tier TIER-GOLD)
+      "GOLD"
+      (if (is-eq tier TIER-SILVER)
+        "SILVER"
+        "BRONZE"
+      )
+    )
+  )
+)
