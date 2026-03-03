@@ -1,0 +1,72 @@
+[project]
+name = 'sats-presso'
+description = ''
+authors = []
+telemetry = true
+cache_dir = './.cache'
+
+# Mainnet requirements
+[[project.requirements]]
+contract_id = 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token'
+
+[[project.requirements]]
+contract_id = 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait'
+
+# Testnet requirements
+[[project.requirements]]
+contract_id = 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token'
+
+# Testnet NFT trait (official SIP-009)
+[[project.requirements]]
+contract_id = 'ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.nft-trait'
+
+# ===================
+# MAINNET CONTRACTS
+# ===================
+[contracts.tip-jar]
+path = 'contracts/tip-jar.clar'
+clarity_version = 4
+epoch = 'latest'
+
+[contracts.tip-receipts]
+path = 'contracts/tip-receipts.clar'
+clarity_version = 4
+epoch = 'latest'
+
+[contracts.sbt-badges]
+path = 'contracts/sbt-badges.clar'
+clarity_version = 4
+epoch = 'latest'
+
+# ===================
+# TESTNET CONTRACTS
+# ===================
+[contracts.tip-jar-testnet]
+path = 'contracts/tip-jar-testnet.clar'
+clarity_version = 4
+epoch = 'latest'
+
+[contracts.tip-receipts-testnet]
+path = 'contracts/tip-receipts-testnet.clar'
+clarity_version = 4
+epoch = 'latest'
+
+[contracts.sbt-badges-testnet]
+path = 'contracts/sbt-badges-testnet.clar'
+clarity_version = 4
+epoch = 'latest'
+
+[repl.analysis]
+passes = ['check_checker']
+
+[repl.analysis.lints]
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = 'https://api.hiro.so'
