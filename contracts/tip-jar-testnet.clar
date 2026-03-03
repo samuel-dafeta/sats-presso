@@ -288,3 +288,97 @@
     (ok tip-id)
   )
 )
+
+;; =====================================
+;; READ-ONLY FUNCTIONS
+;; =====================================
+
+;; Get creator profile
+(define-read-only (get-creator (creator principal))
+  (map-get? creators creator)
+)
+
+;; Get creator's goal/campaign
+(define-read-only (get-creator-goal (creator principal))
+  (map-get? creator-goals creator)
+)
+
+;; Get goal progress (amount raised toward goal)
+(define-read-only (get-goal-progress (creator principal))
+  (let (
+    (creator-data (map-get? creators creator))
+    (goal-data (map-get? creator-goals creator))
+  )
+    (match creator-data
+      c-data (match goal-data
+        g-data (some {
+          goal-amount: (get goal-amount g-data),
+          raised: (get total-received c-data),
+          remaining: (if (>= (get total-received c-data) (get goal-amount g-data))
+                      u0
+                      (- (get goal-amount g-data) (get total-received c-data))),
+          percentage: (/ (* (get total-received c-data) u100) (get goal-amount g-data)),
+          active: (get goal-active g-data)
+        })
+        none
+      )
+      none
+    )
+  )
+)
+
+;; Get creator's preset tip amounts
+(define-read-only (get-creator-presets (creator principal))
+  (map-get? creator-presets creator)
+)
+
+;; Get tip details by ID
+(define-read-only (get-tip (tip-id uint))
+  (map-get? tips tip-id)
+)
+
+;; Get tip ID from creator's history by index
+(define-read-only (get-creator-tip-at-index (creator principal) (index uint))
+  (map-get? creator-tip-ids { creator: creator, index: index })
+)
+
+;; Get tip ID from tipper's history by index
+(define-read-only (get-tipper-tip-at-index (tipper principal) (index uint))
+  (map-get? tipper-tip-ids { tipper: tipper, index: index })
+)
+
+;; Get tip count for a specific tipper
+(define-read-only (get-tipper-tip-count (tipper principal))
+  (default-to u0 (map-get? tipper-tip-counts tipper))
+)
+
+;; Get total tips processed
+(define-read-only (get-total-tips-processed)
+  (var-get total-tips-processed)
+)
+
+;; Get total creators registered
+(define-read-only (get-total-creators)
+  (var-get total-creators)
+)
+
+;; Get current tip counter (total tips sent)
+(define-read-only (get-tip-count)
+  (var-get tip-counter)
+)
+
+;; Check if a principal is a registered creator
+(define-read-only (is-creator (principal principal))
+  (is-some (map-get? creators principal))
+)
+
+;; Get recent tips (returns tip ID at given position from end)
+;; Index 0 = most recent, 1 = second most recent, etc.
+(define-read-only (get-recent-tip-id (index uint))
+  (let ((total (var-get tip-counter)))
+    (if (> total index)
+      (some (- total index))
+      none
+    )
+  )
+)
