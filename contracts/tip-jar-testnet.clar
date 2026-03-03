@@ -209,3 +209,82 @@
     (ok true)
   )
 )
+
+;; Set custom preset tip amounts
+(define-public (set-presets (p1 uint) (p2 uint) (p3 uint) (p4 uint) (p5 uint))
+  (let ((caller tx-sender))
+    ;; Verify caller is a registered creator
+    (asserts! (is-some (map-get? creators caller)) ERR_CREATOR_NOT_FOUND)
+    ;; Validate all presets are > 0
+    (asserts! (and (> p1 u0) (> p2 u0) (> p3 u0) (> p4 u0) (> p5 u0)) ERR_INVALID_PRESET)
+    ;; Set presets
+    (map-set creator-presets caller {
+      preset-1: p1,
+      preset-2: p2,
+      preset-3: p3,
+      preset-4: p4,
+      preset-5: p5
+    })
+    (print {
+      event: "presets-updated",
+      creator: caller,
+      presets: (list p1 p2 p3 p4 p5)
+    })
+    (ok true)
+  )
+)
+
+;; Send a tip to a creator using sBTC
+;; Tips go DIRECTLY to creator (non-custodial - safer!)
+(define-public (send-tip (creator principal) (amount uint) (message (string-utf8 280)))
+  (let (
+    (tipper tx-sender)
+    (tip-id (+ (var-get tip-counter) u1))
+    (creator-data (unwrap! (map-get? creators creator) ERR_CREATOR_NOT_FOUND))
+    (creator-tip-index (get tip-count creator-data))
+    (tipper-tip-index (default-to u0 (map-get? tipper-tip-counts tipper)))
+  )
+    ;; Validate amount
+    (asserts! (>= amount MIN_TIP_AMOUNT) ERR_INVALID_AMOUNT)
+    ;; Transfer sBTC directly from tipper to creator (non-custodial)
+    ;; Note: contract-call? requires literal principal, Clarinet remaps per network
+    (unwrap! (contract-call? 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token transfer
+      amount
+      tipper
+      creator
+      none
+    ) ERR_TRANSFER_FAILED)
+    ;; Update creator stats
+    (map-set creators creator (merge creator-data {
+      total-received: (+ (get total-received creator-data) amount),
+      tip-count: (+ (get tip-count creator-data) u1)
+    }))
+    ;; Record the tip
+    (map-set tips tip-id {
+      from: tipper,
+      to: creator,
+      amount: amount,
+      message: message,
+      timestamp: burn-block-height
+    })
+    ;; Index tip for creator history
+    (map-set creator-tip-ids { creator: creator, index: creator-tip-index } tip-id)
+    ;; Index tip for tipper history
+    (map-set tipper-tip-ids { tipper: tipper, index: tipper-tip-index } tip-id)
+    (map-set tipper-tip-counts tipper (+ tipper-tip-index u1))
+    ;; Update counters
+    (var-set tip-counter tip-id)
+    (var-set total-tips-processed (+ (var-get total-tips-processed) amount))
+    ;; Emit event
+    (print {
+      event: "tip-sent",
+      tip-id: tip-id,
+      from: tipper,
+      to: creator,
+      amount: amount,
+      message: message,
+      block: burn-block-height
+    })
+    (ok tip-id)
+  )
+)
