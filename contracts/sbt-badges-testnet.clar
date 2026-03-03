@@ -204,3 +204,62 @@
     (ok true)
   )
 )
+
+;; Claim a badge (user calls this)
+(define-public (claim-badge (badge-type uint))
+  (let (
+    (sender tx-sender)
+    (stats (default-to 
+      { tips-sent: u0, total-sats-tipped: u0, diamond-tips: u0, current-streak: u0, max-streak: u0, battles-won: u0 }
+      (map-get? user-stats sender)
+    ))
+  )
+    ;; Check badge type is valid
+    (asserts! (and (>= badge-type u1) (<= badge-type u10)) ERR-INVALID-BADGE)
+    
+    ;; Check not already claimed
+    (asserts! (not (has-badge sender badge-type)) ERR-ALREADY-CLAIMED)
+    
+    ;; Check eligibility based on badge type
+    (asserts! (check-eligibility sender badge-type stats) ERR-NOT-ELIGIBLE)
+    
+    ;; Mint the badge
+    (mint-badge sender badge-type)
+  )
+)
+
+;; Check if user is eligible for a badge
+(define-private (check-eligibility 
+  (user principal) 
+  (badge-type uint) 
+  (stats { tips-sent: uint, total-sats-tipped: uint, diamond-tips: uint, current-streak: uint, max-streak: uint, battles-won: uint })
+)
+  (if (is-eq badge-type BADGE-FIRST-SIP)
+    (>= (get tips-sent stats) u1)
+    (if (is-eq badge-type BADGE-REGULAR)
+      (>= (get tips-sent stats) REQ-REGULAR-TIPS)
+      (if (is-eq badge-type BADGE-CONNOISSEUR)
+        (>= (get tips-sent stats) REQ-CONNOISSEUR-TIPS)
+        (if (is-eq badge-type BADGE-WHALE)
+          (>= (get total-sats-tipped stats) REQ-WHALE-SATS)
+          (if (is-eq badge-type BADGE-STREAK-7)
+            (>= (get max-streak stats) u7)
+            (if (is-eq badge-type BADGE-STREAK-30)
+              (>= (get max-streak stats) u30)
+              (if (is-eq badge-type BADGE-DIAMOND-HANDS)
+                (>= (get diamond-tips stats) REQ-DIAMOND-TIPS)
+                (if (is-eq badge-type BADGE-EARLY-ADOPTER)
+                  (<= (var-get total-users) (var-get early-adopter-limit))
+                  (if (is-eq badge-type BADGE-BATTLE-VICTOR)
+                    (>= (get battles-won stats) u1)
+                    false
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+)
