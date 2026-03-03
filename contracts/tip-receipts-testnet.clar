@@ -165,3 +165,67 @@
     (ok token-id)
   )
 )
+
+;; Internal: Update user's tier counts
+(define-private (update-tier-counts (user principal) (tier uint))
+  (let (
+    (current (default-to 
+      { bronze: u0, silver: u0, gold: u0, diamond: u0 }
+      (map-get? user-tier-counts user)
+    ))
+  )
+    (map-set user-tier-counts user
+      (if (is-eq tier TIER-DIAMOND)
+        (merge current { diamond: (+ (get diamond current) u1) })
+        (if (is-eq tier TIER-GOLD)
+          (merge current { gold: (+ (get gold current) u1) })
+          (if (is-eq tier TIER-SILVER)
+            (merge current { silver: (+ (get silver current) u1) })
+            (merge current { bronze: (+ (get bronze current) u1) })
+          )
+        )
+      )
+    )
+    true
+  )
+)
+
+;; ============================================================
+;; READ-ONLY FUNCTIONS
+;; ============================================================
+
+;; Get token metadata
+(define-read-only (get-token-metadata (token-id uint))
+  (map-get? token-metadata token-id)
+)
+
+;; Check if tip has been minted
+(define-read-only (is-tip-minted (tip-id uint))
+  (default-to false (map-get? tip-minted tip-id))
+)
+
+;; Get user's tier counts
+(define-read-only (get-user-tier-counts (user principal))
+  (default-to 
+    { bronze: u0, silver: u0, gold: u0, diamond: u0 }
+    (map-get? user-tier-counts user)
+  )
+)
+
+;; Get total receipts minted
+(define-read-only (get-total-minted)
+  (var-get last-token-id)
+)
+
+;; ============================================================
+;; ADMIN FUNCTIONS
+;; ============================================================
+
+;; Update base URI (admin only)
+(define-public (set-base-uri (new-uri (string-ascii 256)))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (var-set base-uri new-uri)
+    (ok true)
+  )
+)
