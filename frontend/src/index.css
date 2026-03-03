@@ -1,0 +1,255 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 20 14% 4%;
+    --foreground: 36 33% 94%;
+
+    --card: 20 12% 8%;
+    --card-foreground: 36 33% 94%;
+
+    --popover: 20 12% 8%;
+    --popover-foreground: 36 33% 94%;
+
+    --primary: 36 100% 50%;
+    --primary-foreground: 20 14% 4%;
+
+    --secondary: 20 10% 14%;
+    --secondary-foreground: 36 33% 94%;
+
+    --muted: 20 8% 18%;
+    --muted-foreground: 30 10% 55%;
+
+    --accent: 30 80% 45%;
+    --accent-foreground: 36 33% 94%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 36 33% 94%;
+
+    --border: 20 10% 16%;
+    --input: 20 10% 16%;
+    --ring: 36 100% 50%;
+
+    --radius: 0.75rem;
+
+    --bitcoin: 36 100% 50%;
+    --bitcoin-foreground: 20 14% 4%;
+    --espresso: 20 30% 12%;
+    --cream: 36 33% 94%;
+    --amber-glow: 30 100% 60%;
+    --coffee-dark: 20 20% 6%;
+
+    --sidebar-background: 20 12% 8%;
+    --sidebar-foreground: 36 33% 94%;
+    --sidebar-primary: 36 100% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 14%;
+    --sidebar-accent-foreground: 36 33% 94%;
+    --sidebar-border: 20 10% 16%;
+    --sidebar-ring: 36 100% 50%;
+  }
+
+  .light {
+    --background: 40 33% 97%;
+    --foreground: 20 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 30% 12%;
+
+    --primary: 36 100% 50%;
+    --primary-foreground: 20 14% 4%;
+
+    --secondary: 36 20% 90%;
+    --secondary-foreground: 20 30% 12%;
+
+    --muted: 36 15% 92%;
+    --muted-foreground: 20 10% 40%;
+
+    --accent: 30 80% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 15% 85%;
+    --input: 30 15% 85%;
+    --ring: 36 100% 50%;
+
+    --bitcoin: 36 100% 50%;
+    --bitcoin-foreground: 20 14% 4%;
+    --espresso: 20 30% 12%;
+    --cream: 36 33% 94%;
+    --amber-glow: 30 100% 60%;
+    --coffee-dark: 20 20% 6%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 20 30% 12%;
+    --sidebar-primary: 36 100% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 36 20% 90%;
+    --sidebar-accent-foreground: 20 30% 12%;
+    --sidebar-border: 30 15% 85%;
+    --sidebar-ring: 36 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Space Grotesk', sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  code, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-card/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .glow-bitcoin {
+    box-shadow: 0 0 30px -5px hsl(36 100% 50% / 0.3);
+  }
+
+  .glow-bitcoin-sm {
+    box-shadow: 0 0 15px -3px hsl(36 100% 50% / 0.2);
+  }
+
+  .gradient-bitcoin {
+    background: linear-gradient(135deg, hsl(36 100% 50%), hsl(30 100% 60%));
+  }
+
+  .gradient-text-bitcoin {
+    background: linear-gradient(135deg, hsl(36 100% 50%), hsl(30 100% 60%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .tier-bronze {
+    --tier-color: 30 60% 45%;
+  }
+  .tier-silver {
+    --tier-color: 0 0% 70%;
+  }
+  .tier-gold {
+    --tier-color: 45 100% 50%;
+  }
+  .tier-diamond {
+    --tier-color: 200 100% 70%;
+  }
+
+  @keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .animate-ticker {
+    animation: ticker-scroll 30s linear infinite;
+  }
+
+  @keyframes coffee-fill {
+    0% { height: 0%; }
+    100% { height: 100%; }
+  }
+
+  .animate-coffee-fill {
+    animation: coffee-fill 15s ease-in-out forwards;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.1); }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes steam-rise {
+    0% { opacity: 0; transform: translateY(0) scaleX(1); }
+    50% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateY(-40px) scaleX(1.5); }
+  }
+
+  .steam-wisp {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--primary) / 0.3);
+    filter: blur(3px);
+  }
+
+  .steam-wisp-1 {
+    left: -10px;
+    animation: steam-rise 2.5s ease-out infinite;
+  }
+  .steam-wisp-2 {
+    left: 5px;
+    animation: steam-rise 3s ease-out 0.5s infinite;
+  }
+  .steam-wisp-3 {
+    left: 20px;
+    animation: steam-rise 2.8s ease-out 1s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.3),
+      hsl(var(--amber-glow) / 0.4),
+      hsl(var(--primary) / 0.3),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
