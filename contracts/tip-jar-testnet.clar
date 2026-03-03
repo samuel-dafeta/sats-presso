@@ -49,3 +49,59 @@
     registered-at: uint
   }
 )
+
+;; Creator goals/campaigns: principal -> goal data
+(define-map creator-goals
+  principal
+  {
+    goal-amount: uint,
+    goal-description: (string-utf8 140),
+    goal-deadline: uint,
+    goal-active: bool
+  }
+)
+
+;; Creator preset tip amounts: principal -> list of presets
+(define-map creator-presets
+  principal
+  {
+    preset-1: uint,
+    preset-2: uint,
+    preset-3: uint,
+    preset-4: uint,
+    preset-5: uint
+  }
+)
+
+;; Tip history: tip-id -> tip details
+(define-map tips
+  uint
+  {
+    from: principal,
+    to: principal,
+    amount: uint,
+    message: (string-utf8 280),
+    timestamp: uint
+  }
+)
+
+;; Track tip IDs per creator: (creator, index) -> tip-id
+(define-map creator-tip-ids
+  { creator: principal, index: uint }
+  uint
+)
+
+;; Track tip IDs per tipper: (tipper, index) -> tip-id
+(define-map tipper-tip-ids
+  { tipper: principal, index: uint }
+  uint
+)
+
+;; Track tip count per tipper
+(define-map tipper-tip-counts
+  principal
+  uint
+)
+
+;; Tip counter for generating unique IDs
+(define-data-var tip-counter uint u0)
