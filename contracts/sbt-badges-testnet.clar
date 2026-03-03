@@ -398,3 +398,25 @@
 (define-read-only (get-total-badges-minted)
   (var-get last-badge-id)
 )
+
+;; ============================================================
+;; ADMIN FUNCTIONS
+;; ============================================================
+
+;; Update base URI
+(define-public (set-base-uri (new-uri (string-ascii 256)))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (var-set base-uri new-uri)
+    (ok true)
+  )
+)
+
+;; Increment total users (called when new user registers)
+(define-public (increment-users)
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (var-set total-users (+ (var-get total-users) u1))
+    (ok (var-get total-users))
+  )
+)
