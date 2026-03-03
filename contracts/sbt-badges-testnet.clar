@@ -143,3 +143,64 @@
   description: u"Sent 10 or more diamond-tier tips",
   emoji: "diamond2"
 })
+
+;; ============================================================
+;; SBT FUNCTIONS (Modified SIP-009 - Non-transferable)
+;; ============================================================
+
+(define-read-only (get-last-token-id)
+  (ok (var-get last-badge-id))
+)
+
+(define-read-only (get-token-uri (token-id uint))
+  (ok (some (var-get base-uri)))
+)
+
+(define-read-only (get-owner (token-id uint))
+  (ok (nft-get-owner? sbt-badge token-id))
+)
+
+;; BLOCKED - Soul-bound tokens cannot be transferred
+(define-public (transfer (token-id uint) (sender principal) (recipient principal))
+  ERR-TRANSFER-BLOCKED
+)
+
+;; ============================================================
+;; CORE FUNCTIONS
+;; ============================================================
+
+;; Record a tip (called by tip-jar contract or admin)
+(define-public (record-tip (tipper principal) (amount uint))
+  (let (
+    (current-stats (default-to 
+      { tips-sent: u0, total-sats-tipped: u0, diamond-tips: u0, current-streak: u0, max-streak: u0, battles-won: u0 }
+      (map-get? user-stats tipper)
+    ))
+    (is-diamond (>= amount u100000))
+  )
+    ;; Only contract owner or tip-jar can call this
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    
+    ;; Update stats
+    (map-set user-stats tipper {
+      tips-sent: (+ (get tips-sent current-stats) u1),
+      total-sats-tipped: (+ (get total-sats-tipped current-stats) amount),
+      diamond-tips: (if is-diamond 
+        (+ (get diamond-tips current-stats) u1) 
+        (get diamond-tips current-stats)
+      ),
+      current-streak: (get current-streak current-stats),
+      max-streak: (get max-streak current-stats),
+      battles-won: (get battles-won current-stats)
+    })
+    
+    (print {
+      event: "tip-recorded",
+      tipper: tipper,
+      amount: amount,
+      is-diamond: is-diamond
+    })
+    
+    (ok true)
+  )
+)
