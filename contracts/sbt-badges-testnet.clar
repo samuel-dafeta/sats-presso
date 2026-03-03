@@ -263,3 +263,88 @@
     )
   )
 )
+
+;; Internal: Mint a badge to user
+(define-private (mint-badge (user principal) (badge-type uint))
+  (let (
+    (badge-id (+ (var-get last-badge-id) u1))
+    (type-info (unwrap! (map-get? badge-types badge-type) ERR-INVALID-BADGE))
+  )
+    ;; Mint SBT
+    (try! (nft-mint? sbt-badge badge-id user))
+    
+    ;; Store metadata
+    (map-set badge-metadata badge-id {
+      badge-type: badge-type,
+      owner: user,
+      earned-at: stacks-block-height,
+      description: (get description type-info)
+    })
+    
+    ;; Mark as owned
+    (map-set user-has-badge { user: user, badge-type: badge-type } true)
+    
+    ;; Update badge ID
+    (var-set last-badge-id badge-id)
+    
+    (print {
+      event: "badge-earned",
+      badge-id: badge-id,
+      badge-type: badge-type,
+      user: user,
+      name: (get name type-info)
+    })
+    
+    (ok badge-id)
+  )
+)
+
+;; Admin: Award special badges (Top Supporter, Battle Victor)
+(define-public (award-badge (user principal) (badge-type uint))
+  (begin
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    (asserts! (not (has-badge user badge-type)) ERR-ALREADY-CLAIMED)
+    (mint-badge user badge-type)
+  )
+)
+
+;; Admin: Record battle win
+(define-public (record-battle-win (winner principal))
+  (let (
+    (current-stats (default-to 
+      { tips-sent: u0, total-sats-tipped: u0, diamond-tips: u0, current-streak: u0, max-streak: u0, battles-won: u0 }
+      (map-get? user-stats winner)
+    ))
+  )
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    
+    (map-set user-stats winner 
+      (merge current-stats { battles-won: (+ (get battles-won current-stats) u1) })
+    )
+    
+    (print {
+      event: "battle-win-recorded",
+      winner: winner,
+      total-wins: (+ (get battles-won current-stats) u1)
+    })
+    
+    (ok true)
+  )
+)
+
+;; Admin: Update streak
+(define-public (update-streak (user principal) (current uint) (max-val uint))
+  (let (
+    (current-stats (default-to 
+      { tips-sent: u0, total-sats-tipped: u0, diamond-tips: u0, current-streak: u0, max-streak: u0, battles-won: u0 }
+      (map-get? user-stats user)
+    ))
+  )
+    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+    
+    (map-set user-stats user 
+      (merge current-stats { current-streak: current, max-streak: max-val })
+    )
+    (ok true)
+  )
+)
