@@ -348,3 +348,53 @@
     (ok true)
   )
 )
+
+;; ============================================================
+;; READ-ONLY FUNCTIONS
+;; ============================================================
+
+;; Check if user has a specific badge
+(define-read-only (has-badge (user principal) (badge-type uint))
+  (default-to false (map-get? user-has-badge { user: user, badge-type: badge-type }))
+)
+
+;; Get user's stats
+(define-read-only (get-user-stats (user principal))
+  (default-to 
+    { tips-sent: u0, total-sats-tipped: u0, diamond-tips: u0, current-streak: u0, max-streak: u0, battles-won: u0 }
+    (map-get? user-stats user)
+  )
+)
+
+;; Get badge metadata
+(define-read-only (get-badge-metadata (badge-id uint))
+  (map-get? badge-metadata badge-id)
+)
+
+;; Get badge type info
+(define-read-only (get-badge-type-info (badge-type uint))
+  (map-get? badge-types badge-type)
+)
+
+;; Get all claimable badges for a user
+(define-read-only (get-claimable-badges (user principal))
+  (let (
+    (stats (get-user-stats user))
+  )
+    {
+      first-sip: (and (not (has-badge user BADGE-FIRST-SIP)) (>= (get tips-sent stats) u1)),
+      regular: (and (not (has-badge user BADGE-REGULAR)) (>= (get tips-sent stats) REQ-REGULAR-TIPS)),
+      connoisseur: (and (not (has-badge user BADGE-CONNOISSEUR)) (>= (get tips-sent stats) REQ-CONNOISSEUR-TIPS)),
+      whale: (and (not (has-badge user BADGE-WHALE)) (>= (get total-sats-tipped stats) REQ-WHALE-SATS)),
+      streak-7: (and (not (has-badge user BADGE-STREAK-7)) (>= (get max-streak stats) u7)),
+      streak-30: (and (not (has-badge user BADGE-STREAK-30)) (>= (get max-streak stats) u30)),
+      diamond-hands: (and (not (has-badge user BADGE-DIAMOND-HANDS)) (>= (get diamond-tips stats) REQ-DIAMOND-TIPS)),
+      early-adopter: (and (not (has-badge user BADGE-EARLY-ADOPTER)) (<= (var-get total-users) (var-get early-adopter-limit)))
+    }
+  )
+)
+
+;; Get total badges minted
+(define-read-only (get-total-badges-minted)
+  (var-get last-badge-id)
+)
