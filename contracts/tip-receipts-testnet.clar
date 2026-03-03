@@ -114,3 +114,54 @@
     )
   )
 )
+
+;; Mint a tip receipt NFT
+;; Can be called by anyone for any tip (tipper receives the NFT)
+(define-public (mint-receipt 
+  (tip-id uint)
+  (tipper principal)
+  (creator principal)
+  (amount uint)
+)
+  (let (
+    (token-id (+ (var-get last-token-id) u1))
+    (tier (get-tier amount))
+  )
+    ;; Check tip hasn't been minted already
+    (asserts! (is-none (map-get? tip-minted tip-id)) ERR-ALREADY-MINTED)
+    
+    ;; Mint NFT to tipper
+    (try! (nft-mint? tip-receipt token-id tipper))
+    
+    ;; Store metadata
+    (map-set token-metadata token-id {
+      tip-id: tip-id,
+      tipper: tipper,
+      creator: creator,
+      amount: amount,
+      tier: tier,
+      minted-at: stacks-block-height
+    })
+    
+    ;; Mark tip as minted
+    (map-set tip-minted tip-id true)
+    
+    ;; Update tier counts
+    (update-tier-counts tipper tier)
+    
+    ;; Update last token ID
+    (var-set last-token-id token-id)
+    
+    (print {
+      event: "receipt-minted",
+      token-id: token-id,
+      tip-id: tip-id,
+      tipper: tipper,
+      creator: creator,
+      amount: amount,
+      tier: tier
+    })
+    
+    (ok token-id)
+  )
+)
