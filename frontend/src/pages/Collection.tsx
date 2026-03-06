@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Gem, Filter, Lock, CheckCircle2, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +7,43 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockNFTReceipts, mockBadges, formatSats, tierConfig, Tier } from "@/lib/mock-data";
+import { formatSats, tierConfig, type Tier, getTier } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
+import { toastError } from "@/lib/error";
+import { useWallet } from "@/contexts/WalletContext";
+import {
+  getNFTHoldings, CONTRACTS,
+  hasBadge, getClaimableBadges,
+  claimBadge as claimBadgeContract,
+  unwrapCV,
+} from "@/lib/stacks";
+
+// Badge type mapping
+const BADGE_MAP = [
+  { type: 1, name: "First Sip", emoji: "☕", description: "Received your first tip" },
+  { type: 2, name: "Regular", emoji: "☕☕", description: "Received 10 tips" },
+  { type: 3, name: "Connoisseur", emoji: "☕☕☕", description: "Received 100 tips" },
+  { type: 4, name: "Whale Watcher", emoji: "💎", description: "Received a 100k+ sat tip" },
+  { type: 5, name: "Streak Master", emoji: "🔥", description: "7-day tip streak" },
+  { type: 6, name: "Top Supporter", emoji: "👑", description: "Top 10 on leaderboard" },
+];
+
+const tierColors: Record<Tier, string> = {
+  diamond: "from-cyan-500 to-blue-600",
+  gold: "from-yellow-500 to-orange-600",
+  silver: "from-gray-400 to-gray-600",
+  bronze: "from-orange-600 to-red-700",
+};
+
+interface NFTData {
+  id: string; serial: number; tier: Tier; amount: number;
+  from: string; to: string; date: string; message: string; color: string;
+}
+
+interface BadgeData {
+  id: string; type: number; name: string; emoji: string;
+  description: string; earned: boolean; claimable: boolean; progress: number;
+}
 
 const tierFilters: (Tier | "all")[] = ["all", "diamond", "gold", "silver", "bronze"];
 
@@ -34,23 +69,82 @@ const CollectionSkeleton = () => (
 
 const Collection = () => {
   const { toast } = useToast();
+  const { isConnected, address } = useWallet();
   const [filter, setFilter] = useState<Tier | "all">("all");
   const [claiming, setClaiming] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nfts, setNfts] = useState<NFTData[]>([]);
+  const [badges, setBadges] = useState<BadgeData[]>([]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  const fetchData = useCallback(async () => {
+    if (!address) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      // Fetch NFT receipts
+      try {
+        const nftAsset = `${CONTRACTS.TIP_RECEIPTS}::tip-receipt`;
+        const holdings = await getNFTHoldings(address, nftAsset);
+        if (holdings?.results) {
+          setNfts(holdings.results.map((h: any, idx: number) => {
+            const tier: Tier = "bronze";
+            return {
+              id: `NFT-${String(idx + 1).padStart(3, "0")}`,
+              serial: idx + 1, tier, amount: 0, from: "", to: address,
+              date: new Date().toISOString().split("T")[0],
+              message: "", color: tierColors[tier],
+            };
+          }));
+        }
+      } catch { /* NFT fetch failed */ }
 
-  const filtered = filter === "all" ? mockNFTReceipts : mockNFTReceipts.filter((r) => r.tier === filter);
+      // Fetch badges
+      const badgeList: BadgeData[] = [];
+      for (const b of BADGE_MAP) {
+        try {
+          const earned = unwrapCV(await hasBadge(address, b.type));
+          badgeList.push({
+            id: String(b.type), type: b.type, name: b.name, emoji: b.emoji,
+            description: b.description, earned: !!earned, claimable: false, progress: earned ? 100 : 0,
+          });
+        } catch {
+          badgeList.push({
+            id: String(b.type), type: b.type, name: b.name, emoji: b.emoji,
+            description: b.description, earned: false, claimable: false, progress: 0,
+          });
+        }
+      }
+      try {
+        const claimable = unwrapCV(await getClaimableBadges(address));
+        if (claimable) {
+          Object.values(claimable).forEach((val, idx) => {
+            if (val && idx < badgeList.length && !badgeList[idx].earned) {
+              badgeList[idx].claimable = true;
+              badgeList[idx].progress = 100;
+            }
+          });
+        }
+      } catch { /* claimable check failed */ }
+      setBadges(badgeList);
+    } finally {
+      setLoading(false);
+    }
+  }, [address]);
 
-  const claimBadge = (id: string) => {
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filtered = filter === "all" ? nfts : nfts.filter((r) => r.tier === filter);
+
+  const handleClaimBadge = async (id: string) => {
     setClaiming(id);
-    setTimeout(() => {
-      setClaiming(null);
+    try {
+      await claimBadgeContract(Number(id));
       toast({ title: "Badge Claimed! 🏆", description: "Your soul-bound badge has been minted on-chain" });
-    }, 3000);
+      fetchData();
+    } catch (err: unknown) {
+      toastError("Claim failed", err);
+    } finally {
+      setClaiming(null);
+    }
   };
 
   if (loading) return <CollectionSkeleton />;
@@ -118,7 +212,7 @@ const Collection = () => {
 
           <TabsContent value="badges">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockBadges.map((badge, i) => (
+              {badges.map((badge, i) => (
                 <motion.div key={badge.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                   <Card className={`glass border-border/50 ${badge.earned ? "border-primary/20 glow-bitcoin-sm" : "opacity-75"}`}>
                     <CardContent className="p-5">
@@ -140,7 +234,7 @@ const Collection = () => {
                         <Progress value={badge.progress} className="h-1.5 bg-secondary [&>div]:gradient-bitcoin" />
                       </div>
                       {badge.claimable && !badge.earned && (
-                        <Button size="sm" onClick={() => claimBadge(badge.id)} disabled={claiming === badge.id}
+                        <Button size="sm" onClick={() => handleClaimBadge(badge.id)} disabled={claiming === badge.id}
                           className="w-full mt-3 gradient-bitcoin text-primary-foreground font-semibold text-xs">
                           {claiming === badge.id ? <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Minting...</> : "Claim Badge"}
                         </Button>

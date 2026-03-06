@@ -8,11 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { tierConfig, formatSats } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
+import { toastError } from "@/lib/error";
+import { useWallet } from "@/contexts/WalletContext";
+import { registerCreator, setGoal } from "@/lib/stacks";
+import { useNavigate } from "react-router-dom";
 
 const MAX_BIO = 160;
 
 const CreateJar = () => {
   const { toast } = useToast();
+  const { isConnected, address, connect } = useWallet();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({
@@ -32,15 +38,40 @@ const CreateJar = () => {
 
   const isValid = form.name.trim() && form.bio.trim() && form.bio.length <= MAX_BIO;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
     if (!isValid) return;
+
+    if (!isConnected) {
+      await connect();
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await registerCreator(form.name.trim(), form.bio.trim());
+      toast({ title: "Tip Jar Created! ☕", description: `TX: ${result.txid.slice(0, 8)}... Your page is being set up on-chain.` });
+
+      // If there's a goal, set it too
+      if (form.goalDescription.trim() && form.goalAmount) {
+        try {
+          await setGoal(
+            Number(form.goalAmount),
+            form.goalDescription.trim(),
+            0, // no deadline
+          );
+        } catch {
+          // Goal is optional, don't fail the whole flow
+        }
+      }
+
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      toastError("Failed", err);
+    } finally {
       setLoading(false);
-      toast({ title: "Tip Jar Created! ☕", description: "Your page is ready to receive sats" });
-    }, 2000);
+    }
   };
 
   const previewAvatar = form.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${form.name || "preview"}&backgroundColor=f59e0b`;

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, Users, Coffee, Zap, Heart, Star } from "lucide-react";
@@ -7,10 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
-import { mockCreators, creatorCategories, formatSats, type CreatorCategory } from "@/lib/mock-data";
+import { formatSats } from "@/lib/mock-data";
 import { useFollow } from "@/contexts/FollowContext";
 import { useToast } from "@/hooks/use-toast";
+import { toastError } from "@/lib/error";
+import { discoverCreators, getCreator, unwrapCV } from "@/lib/stacks";
+
+interface OnChainCreator {
+  name: string;
+  address: string;
+  bio: string;
+  totalSats: number;
+  tipCount: number;
+  supporters: number;
+}
 
 const ExploreSkeleton = () => (
   <div className="container py-6 md:py-10 pb-24 md:pb-10">
@@ -42,17 +52,43 @@ const ExploreSkeleton = () => (
 
 const Explore = () => {
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<CreatorCategory | "Following">("All");
   const [loading, setLoading] = useState(true);
+  const [creators, setCreators] = useState<OnChainCreator[]>([]);
   const { followedAddresses, toggleFollow, isFollowing } = useFollow();
   const { toast } = useToast();
+  const [activeFilter, setActiveFilter] = useState<"all" | "following">("all");
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(timer);
+  const fetchCreators = useCallback(async () => {
+    setLoading(true);
+    try {
+      const addresses = await discoverCreators();
+      const results: OnChainCreator[] = [];
+      for (const addr of addresses) {
+        try {
+          const raw = unwrapCV(await getCreator(addr));
+          if (raw) {
+            results.push({
+              name: raw.name ?? "Creator",
+              address: addr,
+              bio: raw.bio ?? "",
+              totalSats: Number(raw["total-received"]) || 0,
+              tipCount: Number(raw["tip-count"]) || 0,
+              supporters: Number(raw["supporter-count"]) || 0,
+            });
+          }
+        } catch { /* skip */ }
+      }
+      results.sort((a, b) => b.totalSats - a.totalSats);
+      setCreators(results);
+    } catch (err) {
+      toastError("Failed to load creators", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const featuredCreators = useMemo(() => mockCreators.filter((c) => c.featured), []);
+  useEffect(() => { fetchCreators(); }, [fetchCreators]);
+
   const followCount = followedAddresses.length;
 
   const handleToggleFollow = (address: string, name: string) => {
@@ -61,16 +97,14 @@ const Explore = () => {
     toast({ title: wasFollowing ? `Unfollowed ${name}` : `Following ${name}! ❤️` });
   };
 
-  const filtered = mockCreators.filter((c) => {
+  const filtered = creators.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.bio.toLowerCase().includes(search.toLowerCase());
-    if (activeCategory === "Following") return matchesSearch && isFollowing(c.address);
-    const matchesCategory = activeCategory === "All" || c.category === activeCategory;
-    return matchesSearch && matchesCategory;
+      c.bio.toLowerCase().includes(search.toLowerCase()) ||
+      c.address.toLowerCase().includes(search.toLowerCase());
+    if (activeFilter === "following") return matchesSearch && isFollowing(c.address);
+    return matchesSearch;
   });
-
-  const allCategories: (CreatorCategory | "Following")[] = ["All", "Following", ...creatorCategories.filter((c) => c !== "All")];
 
   if (loading) return <ExploreSkeleton />;
 
@@ -85,75 +119,25 @@ const Explore = () => {
           Discover talented creators and support them with sats
         </p>
 
-        {/* Featured Creators Carousel */}
-        {featuredCreators.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-5 h-5 text-primary fill-primary" />
-              <h2 className="text-lg font-bold">Featured Creators</h2>
-            </div>
-
-            <Carousel opts={{ align: "start", loop: true }} className="w-full">
-              <CarouselContent>
-                {featuredCreators.map((creator) => (
-                  <CarouselItem key={creator.address} className="basis-[80%] sm:basis-[45%] lg:basis-[33%]">
-                    <Card className="glass border-primary/20 bg-gradient-to-br from-primary/5 to-transparent h-full">
-                      <CardContent className="p-5 flex flex-col h-full">
-                        <div className="flex items-start gap-3 mb-3">
-                          <img src={creator.avatar} alt={creator.name} className="w-14 h-14 rounded-full border-2 border-primary/30 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <Link to={`/creator/${creator.address}`} className="font-semibold truncate hover:text-primary transition-colors">{creator.name}</Link>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Badge variant="secondary" className="text-[10px]">{creator.category}</Badge>
-                              <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">
-                                <Star className="w-2.5 h-2.5 mr-0.5 fill-primary" /> Featured
-                              </Badge>
-                            </div>
-                          </div>
-                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleToggleFollow(creator.address, creator.name)}
-                            className="shrink-0 p-1.5 rounded-full hover:bg-secondary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                            <Heart className={`w-4 h-4 transition-colors ${isFollowing(creator.address) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
-                          </motion.button>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1">{creator.bio}</p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
-                          <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-primary" /><span className="font-mono font-semibold text-foreground">{formatSats(creator.totalSats)}</span></span>
-                          <span className="flex items-center gap-1"><Coffee className="w-3 h-3" />{creator.tipCount}</span>
-                          <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{creator.supporters}</span>
-                        </div>
-                        <Button asChild size="sm" className="w-full gradient-bitcoin text-primary-foreground font-semibold glow-bitcoin-sm hover:opacity-90">
-                          <Link to={`/tip/${creator.address}`}><Coffee className="w-3.5 h-3.5 mr-1" /> Send Tip</Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hidden sm:flex -left-3 top-1/2" />
-              <CarouselNext className="hidden sm:flex -right-3 top-1/2" />
-            </Carousel>
-          </motion.div>
-        )}
-
         {/* Search */}
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search creators..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary/50 border-border" />
         </div>
 
-        {/* Category Chips */}
+        {/* Filter Chips */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none" role="tablist">
-          {allCategories.map((cat) => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
+          {(["all", "following"] as const).map((f) => (
+            <button key={f} onClick={() => setActiveFilter(f)}
               role="tab"
-              aria-selected={activeCategory === cat}
+              aria-selected={activeFilter === f}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                activeCategory === cat
+                activeFilter === f
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:border-foreground/30"
               }`}
             >
-              {cat === "Following" ? `Following${followCount > 0 ? ` (${followCount})` : ""}` : cat}
+              {f === "following" ? `Following${followCount > 0 ? ` (${followCount})` : ""}` : "All"}
             </button>
           ))}
         </div>
@@ -166,22 +150,19 @@ const Explore = () => {
                 <Card className="glass border-border/50 h-full flex flex-col">
                   <CardContent className="p-5 flex flex-col flex-1">
                     <div className="flex items-start gap-3 mb-3">
-                      <img src={creator.avatar} alt={creator.name} className="w-11 h-11 rounded-full border border-border shrink-0" />
+                      <div className="w-11 h-11 rounded-full border border-border bg-secondary flex items-center justify-center text-sm font-bold shrink-0">
+                        {creator.name[0]}
+                      </div>
                       <div className="min-w-0 flex-1">
-                        <Link to={`/creator/${creator.address}`} className="font-semibold truncate hover:text-primary transition-colors">{creator.name}</Link>
-                        <Badge variant="secondary" className="text-[10px] mt-0.5">{creator.category}</Badge>
+                        <Link to={`/tip/${creator.address}`} className="font-semibold truncate hover:text-primary transition-colors block">{creator.name}</Link>
+                        <p className="text-[10px] text-muted-foreground font-mono">{creator.address.slice(0, 8)}...{creator.address.slice(-4)}</p>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {creator.featured && (
-                          <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Featured</Badge>
-                        )}
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleToggleFollow(creator.address, creator.name)}
-                          className="p-1.5 rounded-full hover:bg-secondary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                          <Heart className={`w-4 h-4 transition-colors ${isFollowing(creator.address) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
-                        </motion.button>
-                      </div>
+                      <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleToggleFollow(creator.address, creator.name)}
+                        className="p-1.5 rounded-full hover:bg-secondary/80 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <Heart className={`w-4 h-4 transition-colors ${isFollowing(creator.address) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
+                      </motion.button>
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">{creator.bio}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">{creator.bio || "No bio yet"}</p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
                       <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-primary" /><span className="font-mono font-semibold text-foreground">{formatSats(creator.totalSats)}</span></span>
                       <span className="flex items-center gap-1"><Coffee className="w-3 h-3" />{creator.tipCount} tips</span>
@@ -200,7 +181,7 @@ const Explore = () => {
             <CardContent className="p-10 text-center text-muted-foreground">
               <Users className="w-8 h-8 mx-auto mb-2 text-primary/50" />
               <p className="font-medium">No creators found</p>
-              <p className="text-sm">Try adjusting your search or filter</p>
+              <p className="text-sm">Try adjusting your search or be the first to create a tip jar!</p>
             </CardContent>
           </Card>
         )}

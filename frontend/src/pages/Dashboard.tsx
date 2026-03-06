@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import { Zap, Users, Trophy, TrendingUp, Copy, Share2, Gem, ExternalLink, Search, Lock, CheckCircle2, Loader2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
@@ -11,26 +11,99 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockCreator, mockTipHistory, mockNFTReceipts, mockBadges, formatSats, tierConfig, type Tier } from "@/lib/mock-data";
+import { formatSats, tierConfig, type Tier, getTier } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { toastError } from "@/lib/error";
+import { Link, useNavigate } from "react-router-dom";
+import { useWallet } from "@/contexts/WalletContext";
+import {
+  getCreator, getCreatorGoal, getGoalProgress,
+  getCreatorTipAtIndex, getTip, getTipCount,
+  getClaimableBadges, hasBadge, getBadgeTypeInfo, getUserStats,
+  claimBadge as claimBadgeContract,
+  updateProfile,
+  getNFTHoldings, CONTRACTS,
+  unwrapCV, checkIsCreator,
+} from "@/lib/stacks";
 
-const stats = [
-  { label: "Total Sats", value: formatSats(mockCreator.totalSats), icon: Zap, suffix: "sats" },
-  { label: "Tips Received", value: mockCreator.tipCount.toString(), icon: TrendingUp, suffix: "" },
-  { label: "Global Rank", value: `#${mockCreator.rank}`, icon: Trophy, suffix: "" },
-  { label: "Supporters", value: mockCreator.supporters.toString(), icon: Users, suffix: "" },
+// Badge type mapping (on-chain badge-type uint → display info)
+const BADGE_MAP: { type: number; name: string; emoji: string; description: string }[] = [
+  { type: 1, name: "First Sip", emoji: "☕", description: "Received your first tip" },
+  { type: 2, name: "Regular", emoji: "☕☕", description: "Received 10 tips" },
+  { type: 3, name: "Connoisseur", emoji: "☕☕☕", description: "Received 100 tips" },
+  { type: 4, name: "Whale Watcher", emoji: "💎", description: "Received a 100k+ sat tip" },
+  { type: 5, name: "Streak Master", emoji: "🔥", description: "7-day tip streak" },
+  { type: 6, name: "Top Supporter", emoji: "👑", description: "Top 10 on leaderboard" },
 ];
 
 const tierFilters: (Tier | "all")[] = ["all", "diamond", "gold", "silver", "bronze"];
 const TIPS_PER_PAGE = 5;
 
+interface CreatorData {
+  name: string;
+  bio: string;
+  address: string;
+  shortAddress: string;
+  totalSats: number;
+  tipCount: number;
+  supporters: number;
+}
+
+interface TipData {
+  id: string;
+  sender: string;
+  amount: number;
+  message: string;
+  tier: Tier;
+  timestamp: string;
+}
+
+interface BadgeData {
+  id: string;
+  type: number;
+  name: string;
+  emoji: string;
+  description: string;
+  earned: boolean;
+  claimable: boolean;
+  progress: number;
+}
+
+interface NFTData {
+  id: string;
+  serial: number;
+  tier: Tier;
+  amount: number;
+  from: string;
+  to: string;
+  date: string;
+  message: string;
+  color: string;
+}
+
+const tierColors: Record<Tier, string> = {
+  diamond: "from-cyan-500 to-blue-600",
+  gold: "from-yellow-500 to-orange-600",
+  silver: "from-gray-400 to-gray-600",
+  bronze: "from-orange-600 to-red-700",
+};
+
 const Dashboard = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { isConnected, address } = useWallet();
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
-  const tipUrl = `${window.location.origin}/tip/${mockCreator.address}`;
-  const goalPercent = Math.round((mockCreator.goal.current / mockCreator.goal.target) * 100);
+
+  // Data from chain
+  const [creator, setCreator] = useState<CreatorData | null>(null);
+  const [goal, setGoal] = useState<{ title: string; target: number; current: number } | null>(null);
+  const [tipHistory, setTipHistory] = useState<TipData[]>([]);
+  const [badges, setBadges] = useState<BadgeData[]>([]);
+  const [nfts, setNfts] = useState<NFTData[]>([]);
+
+  const tipUrl = address ? `${window.location.origin}/tip/${address}` : "";
+  const goalPercent = goal ? Math.round((goal.current / goal.target) * 100) : 0;
 
   // Tip History state
   const [tipSearch, setTipSearch] = useState("");
@@ -44,24 +117,178 @@ const Dashboard = () => {
   const [nftFilter, setNftFilter] = useState<Tier | "all">("all");
 
   // Settings state
-  const [displayName, setDisplayName] = useState(mockCreator.name);
-  const [bio, setBio] = useState(mockCreator.bio);
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
   const [minAmount, setMinAmount] = useState("1000");
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // Redirect if not connected
+  useEffect(() => {
+    if (!isConnected || !address) {
+      navigate("/");
+    }
+  }, [isConnected, address, navigate]);
+
+  // Fetch all data
+  const fetchDashboardData = useCallback(async () => {
+    if (!address) return;
+    setLoading(true);
+    try {
+      // Check if user is a registered creator
+      const isCreatorResult = unwrapCV(await checkIsCreator(address));
+      if (!isCreatorResult) {
+        toast({ title: "Not a creator", description: "Register a tip jar first", variant: "destructive" });
+        navigate("/create");
+        return;
+      }
+
+      // Fetch creator profile
+      const creatorRaw = unwrapCV(await getCreator(address));
+      const creatorData: CreatorData = {
+        name: creatorRaw?.name ?? "Creator",
+        bio: creatorRaw?.bio ?? "",
+        address,
+        shortAddress: `${address.slice(0, 4)}...${address.slice(-4)}`,
+        totalSats: Number(creatorRaw?.["total-received"]) || 0,
+        tipCount: Number(creatorRaw?.["tip-count"]) || 0,
+        supporters: Number(creatorRaw?.["supporter-count"]) || 0,
+      };
+      setCreator(creatorData);
+      setDisplayName(creatorData.name);
+      setBio(creatorData.bio);
+
+      // Fetch goal
+      try {
+        const goalRaw = unwrapCV(await getCreatorGoal(address));
+        if (goalRaw && goalRaw.active) {
+          const progressRaw = unwrapCV(await getGoalProgress(address));
+          setGoal({
+            title: goalRaw.description ?? "Goal",
+            target: goalRaw.amount ?? 0,
+            current: progressRaw?.progress ?? 0,
+          });
+        }
+      } catch { /* no goal set */ }
+
+      // Fetch tip history (last 20 tips)
+      const tipCount = creatorData.tipCount;
+      const tips: TipData[] = [];
+      const fetchCount = Math.min(tipCount, 20);
+      for (let i = tipCount; i > tipCount - fetchCount && i > 0; i--) {
+        try {
+          const tipIdRaw = unwrapCV(await getCreatorTipAtIndex(address, i - 1));
+          if (tipIdRaw == null) continue;
+          const tipRaw = unwrapCV(await getTip(tipIdRaw));
+          if (!tipRaw) continue;
+          const amount = Number(tipRaw.amount) || 0;
+          tips.push({
+            id: String(tipIdRaw),
+            sender: tipRaw.from ?? "Unknown",
+            amount,
+            message: tipRaw.message ?? "",
+            tier: getTier(amount),
+            timestamp: tipRaw.timestamp ? new Date(Number(tipRaw.timestamp) * 1000).toISOString() : new Date().toISOString(),
+          });
+        } catch { /* skip failed tip fetch */ }
+      }
+      setTipHistory(tips);
+
+      // Fetch badges
+      const badgeList: BadgeData[] = [];
+      for (const b of BADGE_MAP) {
+        try {
+          const earned = unwrapCV(await hasBadge(address, b.type));
+          badgeList.push({
+            id: String(b.type),
+            type: b.type,
+            name: b.name,
+            emoji: b.emoji,
+            description: b.description,
+            earned: !!earned,
+            claimable: false, // Will compute below
+            progress: earned ? 100 : 0,
+          });
+        } catch {
+          badgeList.push({
+            id: String(b.type),
+            type: b.type,
+            name: b.name,
+            emoji: b.emoji,
+            description: b.description,
+            earned: false,
+            claimable: false,
+            progress: 0,
+          });
+        }
+      }
+      // Check which badges are claimable
+      try {
+        const claimable = unwrapCV(await getClaimableBadges(address));
+        if (claimable) {
+          // claimable is a tuple of booleans keyed by badge name
+          const claimKeys = Object.entries(claimable);
+          claimKeys.forEach(([key, val], idx) => {
+            if (val && idx < badgeList.length && !badgeList[idx].earned) {
+              badgeList[idx].claimable = true;
+              badgeList[idx].progress = 100;
+            }
+          });
+        }
+      } catch { /* claimable check failed */ }
+      setBadges(badgeList);
+
+      // Fetch NFT receipts from Hiro API
+      try {
+        const nftAsset = `${CONTRACTS.TIP_RECEIPTS}::tip-receipt`;
+        const holdings = await getNFTHoldings(address, nftAsset);
+        if (holdings?.results) {
+          const nftList: NFTData[] = holdings.results.map((h: any, idx: number) => {
+            const amount = 0; // Will be enriched later from token metadata
+            const tier: Tier = "bronze";
+            return {
+              id: `NFT-${String(idx + 1).padStart(3, "0")}`,
+              serial: idx + 1,
+              tier,
+              amount,
+              from: "",
+              to: address,
+              date: new Date().toISOString().split("T")[0],
+              message: "",
+              color: tierColors[tier],
+            };
+          });
+          setNfts(nftList);
+        }
+      } catch { /* NFT fetch failed */ }
+    } catch (err) {
+      toast({ title: "Failed to load dashboard", description: "Could not fetch your data. Try refreshing.", variant: "destructive" });
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [address, navigate, toast]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const topSupporters = useMemo(() => {
     const map = new Map<string, number>();
-    mockTipHistory.forEach((t) => map.set(t.sender, (map.get(t.sender) ?? 0) + t.amount));
+    tipHistory.forEach((t) => map.set(t.sender, (map.get(t.sender) ?? 0) + t.amount));
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  }, [tipHistory]);
 
   if (loading) return <DashboardSkeleton />;
+  if (!creator) return <DashboardSkeleton />;
+
+  const stats = [
+    { label: "Total Sats", value: formatSats(creator.totalSats), icon: Zap, suffix: "sats" },
+    { label: "Tips Received", value: creator.tipCount.toString(), icon: TrendingUp, suffix: "" },
+    { label: "Rank", value: "-", icon: Trophy, suffix: "" },
+    { label: "Supporters", value: creator.supporters.toString(), icon: Users, suffix: "" },
+  ];
 
   const copyLink = () => {
     navigator.clipboard.writeText(tipUrl);
@@ -69,7 +296,7 @@ const Dashboard = () => {
   };
 
   // Tip History filtering + pagination
-  const filteredTips = mockTipHistory.filter((tip) => {
+  const filteredTips = tipHistory.filter((tip) => {
     const matchSearch = tip.sender.toLowerCase().includes(tipSearch.toLowerCase());
     const matchTier = tipTierFilter === "all" || tip.tier === tipTierFilter;
     return matchSearch && matchTier;
@@ -78,28 +305,49 @@ const Dashboard = () => {
   const pagedTips = filteredTips.slice(tipPage * TIPS_PER_PAGE, (tipPage + 1) * TIPS_PER_PAGE);
 
   // NFT filtering
-  const filteredNfts = nftFilter === "all" ? mockNFTReceipts : mockNFTReceipts.filter((r) => r.tier === nftFilter);
+  const filteredNfts = nftFilter === "all" ? nfts : nfts.filter((r) => r.tier === nftFilter);
 
-  // Weekly stats (mock)
-  const weeklyTips = 12;
-  const weeklySats = 185000;
+  // Weekly stats from tip history (last 7 days)
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weeklyTipsList = tipHistory.filter((t) => new Date(t.timestamp).getTime() > weekAgo);
+  const weeklyTips = weeklyTipsList.length;
+  const weeklySats = weeklyTipsList.reduce((sum, t) => sum + t.amount, 0);
 
-  const claimBadge = (id: string) => {
+  const handleClaimBadge = async (id: string) => {
     setClaiming(id);
-    setTimeout(() => {
-      setClaiming(null);
+    try {
+      await claimBadgeContract(Number(id));
       toast({ title: "Badge Claimed! 🏆", description: "Your soul-bound badge has been minted on-chain" });
-    }, 3000);
+      // Refresh badges
+      fetchDashboardData();
+    } catch (err: unknown) {
+      toastError("Claim failed", err);
+    } finally {
+      setClaiming(null);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!displayName.trim()) return;
+    setSavingSettings(true);
+    try {
+      await updateProfile(displayName.trim(), bio.trim());
+      toast({ title: "Settings saved! ✅", description: "Profile update transaction submitted" });
+    } catch (err: unknown) {
+      toastError("Update failed", err);
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   return (
     <div className="container py-6 md:py-10 pb-24 md:pb-10">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-4 mb-8">
-          <img src={mockCreator.avatar} alt="" className="w-12 h-12 rounded-xl border border-border" />
+          <div className="w-12 h-12 rounded-xl border border-border bg-secondary flex items-center justify-center text-lg font-bold">{creator.name[0]}</div>
           <div>
-            <h1 className="text-2xl font-bold">{mockCreator.name}</h1>
-            <p className="text-sm text-muted-foreground font-mono">{mockCreator.shortAddress}</p>
+            <h1 className="text-2xl font-bold tracking-tight">{creator.name}</h1>
+            <p className="text-sm text-muted-foreground font-mono">{creator.shortAddress}</p>
           </div>
         </div>
 
@@ -124,21 +372,23 @@ const Dashboard = () => {
         </div>
 
         {/* Goal */}
+        {goal && (
         <Card className="glass border-border/50 mb-6">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-sm text-muted-foreground">Current Goal</p>
-                <p className="font-semibold">{mockCreator.goal.title}</p>
+                <p className="font-semibold">{goal.title}</p>
               </div>
               <span className="text-sm font-semibold text-primary">{goalPercent}%</span>
             </div>
             <Progress value={goalPercent} className="h-2.5 bg-secondary [&>div]:gradient-bitcoin" />
             <p className="text-xs text-muted-foreground mt-2">
-              {formatSats(mockCreator.goal.current)} / {formatSats(mockCreator.goal.target)} sats
+              {formatSats(goal.current)} / {formatSats(goal.target)} sats
             </p>
           </CardContent>
         </Card>
+        )}
 
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-2 mb-6">
@@ -149,7 +399,7 @@ const Dashboard = () => {
             <Share2 className="w-3.5 h-3.5 mr-1.5" /> Share
           </Button>
           <Button variant="outline" size="sm" asChild className="border-border hover:border-primary/30">
-            <Link to={`/collection/${mockCreator.address}`}>
+            <Link to={`/collection/${address}`}>
               <Gem className="w-3.5 h-3.5 mr-1.5" /> NFT Receipts
             </Link>
           </Button>
@@ -211,7 +461,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border/30">
-                  {mockTipHistory.slice(0, 5).map((tip) => (
+                  {tipHistory.slice(0, 5).map((tip) => (
                     <div key={tip.id} className="flex items-center justify-between px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">{tip.sender[0]}</div>
@@ -306,7 +556,7 @@ const Dashboard = () => {
           {/* MY BADGES */}
           <TabsContent value="badges">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockBadges.map((badge, i) => (
+              {badges.map((badge, i) => (
                 <motion.div key={badge.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                   <Card className={`glass border-border/50 ${badge.earned ? "border-primary/20 glow-bitcoin-sm" : "opacity-75"}`}>
                     <CardContent className="p-5">
@@ -328,7 +578,7 @@ const Dashboard = () => {
                         <Progress value={badge.progress} className="h-1.5 bg-secondary [&>div]:gradient-bitcoin" />
                       </div>
                       {badge.claimable && !badge.earned && (
-                        <Button size="sm" onClick={() => claimBadge(badge.id)} disabled={claiming === badge.id}
+                        <Button size="sm" onClick={() => handleClaimBadge(badge.id)} disabled={claiming === badge.id}
                           className="w-full mt-3 gradient-bitcoin text-primary-foreground font-semibold text-xs">
                           {claiming === badge.id ? <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Minting...</> : "Claim Badge"}
                         </Button>
@@ -409,8 +659,9 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <Button className="gradient-bitcoin text-primary-foreground font-semibold w-full sm:w-auto"
-                  onClick={() => toast({ title: "Settings saved! ✅", description: "Your preferences have been updated" })}>
-                  Save Changes
+                  disabled={savingSettings}
+                  onClick={handleSaveSettings}>
+                  {savingSettings ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...</> : "Save Changes"}
                 </Button>
               </CardContent>
             </Card>

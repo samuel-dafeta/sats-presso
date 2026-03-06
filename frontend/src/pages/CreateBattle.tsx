@@ -30,6 +30,7 @@ const CreateBattle = () => {
   const canSubmit = creatorA && creatorB && creatorA !== creatorB;
 
   const handleSubmit = () => {
+    if (!canSubmit) return;
     toast({
       title: "⚔️ Battle Created!",
       description: `${selectedA?.name} vs ${selectedB?.name} — ${duration}h battle is live!`,
