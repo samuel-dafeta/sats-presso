@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F7931A"/>
+      <stop offset="100%" style="stop-color:#E8750A"/>
+    </linearGradient>
+    <linearGradient id="steam" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="248" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="232" fill="none" stroke="#FFF" stroke-width="4" opacity="0.3"/>
+  <!-- Coffee cup body -->
+  <rect x="140" y="230" width="200" height="160" rx="20" ry="20" fill="#FFFFFF"/>
+  <!-- Cup handle -->
+  <path d="M340 270 C380 270 395 310 380 340 C370 360 340 360 340 360" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+  <!-- Saucer -->
+  <ellipse cx="240" cy="400" rx="130" ry="20" fill="#FFFFFF" opacity="0.6"/>
+  <!-- Bitcoin ₿ symbol on cup -->
+  <text x="240" y="335" font-family="Arial, sans-serif" font-size="110" font-weight="bold" fill="#F7931A" text-anchor="middle" dominant-baseline="central">₿</text>
+  <!-- Steam lines -->
+  <path d="M190 210 Q195 185 190 165 Q185 145 190 125" fill="none" stroke="url(#steam)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M230 200 Q235 175 230 155 Q225 135 230 115" fill="none" stroke="url(#steam)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M270 210 Q275 185 270 165 Q265 145 270 125" fill="none" stroke="url(#steam)" stroke-width="8" stroke-linecap="round"/>
+</svg>

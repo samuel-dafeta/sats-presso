@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useWallet } from "@/contexts/WalletContext";
 import { useTheme } from "next-themes";
-import { WalletModal } from "./WalletModal";
 import { toast } from "@/hooks/use-toast";
+import { toastError } from "@/lib/error";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { formatSats } from "@/lib/mock-data";
 
@@ -21,8 +21,7 @@ const navLinks = [
 ];
 
 export const Header = () => {
-  const { isConnected, address, balance, disconnect } = useWallet();
-  const [walletOpen, setWalletOpen] = useState(false);
+  const { isConnected, address, balance, disconnect, connect, connecting } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { theme, setTheme } = useTheme();
@@ -131,11 +130,19 @@ export const Header = () => {
             ) : (
               <Button
                 size="sm"
-                onClick={() => setWalletOpen(true)}
+                disabled={connecting}
+                onClick={async () => {
+                  try {
+                    await connect();
+                    toast({ title: "Wallet Connected", description: "Your Stacks wallet is now active" });
+                  } catch (err) {
+                    toastError("Connection Failed", err);
+                  }
+                }}
                 className="hidden md:flex gradient-bitcoin text-primary-foreground font-semibold glow-bitcoin-sm hover:opacity-90"
               >
                 <Wallet className="w-3.5 h-3.5 mr-1" />
-                Connect
+                {connecting ? "Connecting..." : "Connect"}
               </Button>
             )}
             <button
@@ -208,11 +215,20 @@ export const Header = () => {
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => { setWalletOpen(true); setMobileOpen(false); }}
+                  disabled={connecting}
+                  onClick={async () => {
+                    setMobileOpen(false);
+                    try {
+                      await connect();
+                      toast({ title: "Wallet Connected", description: "Your Stacks wallet is now active" });
+                    } catch (err) {
+                      toastError("Connection Failed", err);
+                    }
+                  }}
                   className="mt-2 gradient-bitcoin text-primary-foreground font-semibold"
                 >
                   <Wallet className="w-3.5 h-3.5 mr-1" />
-                  Connect Wallet
+                  {connecting ? "Connecting..." : "Connect Wallet"}
                 </Button>
               )}
             </nav>
@@ -220,7 +236,6 @@ export const Header = () => {
         )}
       </header>
 
-      <WalletModal open={walletOpen} onOpenChange={setWalletOpen} />
     </>
   );
 };
