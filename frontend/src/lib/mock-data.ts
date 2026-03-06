@@ -103,6 +103,7 @@ export const mockCreators = [
 ];
 
 export const formatSats = (sats: number): string => {
+  if (sats == null || isNaN(sats)) return "0";
   if (sats >= 1000000) return `${(sats / 1000000).toFixed(1)}M`;
   if (sats >= 1000) return `${(sats / 1000).toFixed(0)}k`;
   return sats.toString();
