@@ -11,3 +11,4 @@
 (define-constant ERR-NOT-FOUND (err u404))
 (define-constant ERR-ALREADY-CLAIMED (err u409))
 (define-constant ERR-NOT-ELIGIBLE (err u403))
+(define-constant ERR-TRANSFER-BLOCKED (err u405))
