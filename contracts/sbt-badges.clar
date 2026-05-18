@@ -58,3 +58,6 @@
 
 ;; Track which badges each user has
 (define-map user-badges principal (list 20 uint))
+
+;; Track if user has specific badge type
+(define-map user-has-badge { user: principal, badge-type: uint } bool)
