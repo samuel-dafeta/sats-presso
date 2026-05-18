@@ -30,3 +30,4 @@
 (define-constant REQ-REGULAR-TIPS u10)
 (define-constant REQ-CONNOISSEUR-TIPS u100)
 (define-constant REQ-WHALE-SATS u1000000)
+(define-constant REQ-DIAMOND-TIPS u10)
