@@ -31,3 +31,9 @@
 (define-constant REQ-CONNOISSEUR-TIPS u100)
 (define-constant REQ-WHALE-SATS u1000000)
 (define-constant REQ-DIAMOND-TIPS u10)
+
+;; ============================================================
+;; DATA VARIABLES
+;; ============================================================
+
+(define-data-var last-badge-id uint u0)
