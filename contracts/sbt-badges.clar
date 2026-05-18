@@ -38,3 +38,4 @@
 
 (define-data-var last-badge-id uint u0)
 (define-data-var total-users uint u0)
+(define-data-var early-adopter-limit uint u1000)
