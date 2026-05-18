@@ -13,3 +13,6 @@
 (define-constant ERR-NOT-ELIGIBLE (err u403))
 (define-constant ERR-TRANSFER-BLOCKED (err u405))
 (define-constant ERR-INVALID-BADGE (err u400))
+
+;; Badge Type IDs
+(define-constant BADGE-FIRST-SIP u1)       ;; First tip sent
