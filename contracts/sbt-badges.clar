@@ -18,3 +18,4 @@
 (define-constant BADGE-FIRST-SIP u1)       ;; First tip sent
 (define-constant BADGE-REGULAR u2)         ;; 10+ tips sent
 (define-constant BADGE-CONNOISSEUR u3)     ;; 100+ tips sent
+(define-constant BADGE-WHALE u4)           ;; 1M+ sats tipped
