@@ -69,3 +69,5 @@
   diamond-tips: uint,
   current-streak: uint,
   max-streak: uint,
+  battles-won: uint
+})
