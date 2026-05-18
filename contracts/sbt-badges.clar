@@ -66,3 +66,4 @@
 (define-map user-stats principal {
   tips-sent: uint,
   total-sats-tipped: uint,
+  diamond-tips: uint,
