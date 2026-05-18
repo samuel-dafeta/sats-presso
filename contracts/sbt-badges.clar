@@ -65,3 +65,4 @@
 ;; User stats (for eligibility checking)
 (define-map user-stats principal {
   tips-sent: uint,
+  total-sats-tipped: uint,
