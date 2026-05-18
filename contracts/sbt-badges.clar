@@ -61,3 +61,6 @@
 
 ;; Track if user has specific badge type
 (define-map user-has-badge { user: principal, badge-type: uint } bool)
+
+;; User stats (for eligibility checking)
+(define-map user-stats principal {
