@@ -7,3 +7,4 @@
 ;; ============================================================
 
 (define-constant CONTRACT-OWNER tx-sender)
+(define-constant ERR-NOT-AUTHORIZED (err u401))
