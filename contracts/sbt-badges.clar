@@ -9,3 +9,4 @@
 (define-constant CONTRACT-OWNER tx-sender)
 (define-constant ERR-NOT-AUTHORIZED (err u401))
 (define-constant ERR-NOT-FOUND (err u404))
+(define-constant ERR-ALREADY-CLAIMED (err u409))
