@@ -47,3 +47,6 @@
 
 ;; SBT - Non-fungible but non-transferable
 (define-non-fungible-token sbt-badge uint)
+
+;; Badge metadata
+(define-map badge-metadata uint {
