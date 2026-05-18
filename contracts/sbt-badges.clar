@@ -28,3 +28,4 @@
 
 ;; Badge requirements
 (define-constant REQ-REGULAR-TIPS u10)
+(define-constant REQ-CONNOISSEUR-TIPS u100)
