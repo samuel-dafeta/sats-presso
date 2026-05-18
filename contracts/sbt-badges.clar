@@ -40,3 +40,10 @@
 (define-data-var total-users uint u0)
 (define-data-var early-adopter-limit uint u1000)
 (define-data-var base-uri (string-ascii 256) "https://satspresso.io/api/badge/")
+
+;; ============================================================
+;; DATA MAPS
+;; ============================================================
+
+;; SBT - Non-fungible but non-transferable
+(define-non-fungible-token sbt-badge uint)
