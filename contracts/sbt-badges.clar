@@ -23,3 +23,4 @@
 (define-constant BADGE-STREAK-30 u6)       ;; 30-day tip streak
 (define-constant BADGE-TOP-SUPPORTER u7)   ;; #1 supporter of any creator
 (define-constant BADGE-BATTLE-VICTOR u8)   ;; Won a tip battle
+(define-constant BADGE-EARLY-ADOPTER u9)   ;; First 1000 users
