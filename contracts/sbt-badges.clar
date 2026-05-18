@@ -52,3 +52,4 @@
 (define-map badge-metadata uint {
   badge-type: uint,
   owner: principal,
+  earned-at: uint,
