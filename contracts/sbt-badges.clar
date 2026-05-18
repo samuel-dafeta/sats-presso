@@ -50,3 +50,4 @@
 
 ;; Badge metadata
 (define-map badge-metadata uint {
+  badge-type: uint,
