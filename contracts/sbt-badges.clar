@@ -71,3 +71,6 @@
   max-streak: uint,
   battles-won: uint
 })
+
+;; Badge type metadata
+(define-map badge-types uint {
