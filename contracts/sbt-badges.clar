@@ -55,3 +55,6 @@
   earned-at: uint,
   description: (string-utf8 100)
 })
+
+;; Track which badges each user has
+(define-map user-badges principal (list 20 uint))
