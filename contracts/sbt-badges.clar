@@ -67,3 +67,4 @@
   tips-sent: uint,
   total-sats-tipped: uint,
   diamond-tips: uint,
+  current-streak: uint,
