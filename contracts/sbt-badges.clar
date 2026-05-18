@@ -20,3 +20,4 @@
 (define-constant BADGE-CONNOISSEUR u3)     ;; 100+ tips sent
 (define-constant BADGE-WHALE u4)           ;; 1M+ sats tipped
 (define-constant BADGE-STREAK-7 u5)        ;; 7-day tip streak
+(define-constant BADGE-STREAK-30 u6)       ;; 30-day tip streak
