@@ -53,3 +53,5 @@
   badge-type: uint,
   owner: principal,
   earned-at: uint,
+  description: (string-utf8 100)
+})
