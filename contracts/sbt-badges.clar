@@ -74,3 +74,4 @@
 
 ;; Badge type metadata
 (define-map badge-types uint {
+  name: (string-utf8 30),
