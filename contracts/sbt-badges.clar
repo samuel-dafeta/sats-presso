@@ -24,3 +24,4 @@
 (define-constant BADGE-TOP-SUPPORTER u7)   ;; #1 supporter of any creator
 (define-constant BADGE-BATTLE-VICTOR u8)   ;; Won a tip battle
 (define-constant BADGE-EARLY-ADOPTER u9)   ;; First 1000 users
+(define-constant BADGE-DIAMOND-HANDS u10)  ;; 10+ diamond tier tips
