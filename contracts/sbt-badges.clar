@@ -68,3 +68,4 @@
   total-sats-tipped: uint,
   diamond-tips: uint,
   current-streak: uint,
+  max-streak: uint,
